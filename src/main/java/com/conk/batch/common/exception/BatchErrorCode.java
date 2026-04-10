@@ -16,7 +16,13 @@ public enum BatchErrorCode implements ErrorCode {
     INVALID_OCCUPIED_BIN_COUNT("BILLING-004", "occupiedBinCount is invalid"),
     WMS_BIN_COUNT_FETCH_FAILED("BILLING-005", "failed to fetch daily bin counts from WMS"),
     MONTHLY_BILLING_CALCULATION_FAILED("BILLING-006", "failed to calculate monthly billing"),
-    BILLING_RESULT_PUBLISH_FAILED("BILLING-007", "failed to publish billing result");
+    BILLING_RESULT_PUBLISH_FAILED("BILLING-007", "failed to publish billing result"),
+    INVALID_BILLING_MONTH("BILLING-008", "billingMonth is invalid"),
+    INVALID_STORAGE_UNIT_PRICE("BILLING-009", "storageUnitPrice is invalid"),
+    INVALID_PICK_UNIT_PRICE("BILLING-010", "pickUnitPrice is invalid"),
+    INVALID_PACK_UNIT_PRICE("BILLING-011", "packUnitPrice is invalid"),
+    FEE_SETTING_FETCH_FAILED("BILLING-012", "failed to fetch fee settings from WMS"),
+    PICK_PACK_AGGREGATION_FETCH_FAILED("BILLING-013", "failed to fetch pick-pack aggregations from WMS");
 
     private final String code;
     private final String message;
