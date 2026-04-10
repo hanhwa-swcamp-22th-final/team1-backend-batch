@@ -1,0 +1,53 @@
+spring:
+  application:
+    name: batch-service
+  datasource:
+    url: ${BATCH_DB_URL:jdbc:mariadb://localhost:3306/batch_db}
+    username: ${BATCH_DB_USERNAME}
+    password: ${BATCH_DB_PASSWORD}
+    driver-class-name: org.mariadb.jdbc.Driver
+  jpa:
+    hibernate:
+      ddl-auto: none
+    open-in-view: false
+    properties:
+      hibernate:
+        format_sql: true
+  kafka:
+    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9094}
+  jackson:
+    serialization:
+      write-dates-as-timestamps: false
+
+app:
+  datasource:
+    wms-read:
+      url: ${WMS_READ_DB_URL:jdbc:mariadb://localhost:3306/wms_db}
+      username: ${WMS_READ_DB_USERNAME}
+      password: ${WMS_READ_DB_PASSWORD}
+      driver-class-name: org.mariadb.jdbc.Driver
+      hikari:
+        maximum-pool-size: 5
+        minimum-idle: 1
+  clients:
+    wms:
+      base-url: ${WMS_BASE_URL:http://localhost:8080}
+  kafka:
+    topics:
+      billing-monthly-result: billing.monthly.result.v1
+  billing:
+    scheduling:
+      enabled: false
+      zone: Asia/Seoul
+      daily-bin-snapshot-cron: 0 0 6 * * *
+      monthly-billing-cron: 0 10 6 1 * *
+
+management:
+  endpoint:
+    health:
+      probes:
+        enabled: true
+  endpoints:
+    web:
+      exposure:
+        include: health,info

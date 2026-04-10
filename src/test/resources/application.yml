@@ -1,0 +1,32 @@
+spring:
+  datasource:
+    url: jdbc:h2:mem:batch;MODE=MariaDB;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE
+    username: sa
+    password:
+    driver-class-name: org.h2.Driver
+  jpa:
+    hibernate:
+      ddl-auto: create-drop
+    open-in-view: false
+  kafka:
+    bootstrap-servers: localhost:9094
+
+app:
+  datasource:
+    wms-read:
+      url: jdbc:h2:mem:wmsread;MODE=MariaDB;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE
+      username: sa
+      password:
+      driver-class-name: org.h2.Driver
+      hikari:
+        maximum-pool-size: 2
+        minimum-idle: 1
+  clients:
+    wms:
+      base-url: http://localhost:8080
+  kafka:
+    topics:
+      billing-monthly-result: billing.monthly.result.v1
+  billing:
+    scheduling:
+      enabled: false
