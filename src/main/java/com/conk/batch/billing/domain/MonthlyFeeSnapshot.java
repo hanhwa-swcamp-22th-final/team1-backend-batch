@@ -1,5 +1,7 @@
 package com.conk.batch.billing.domain;
 
+import com.conk.batch.common.exception.BatchErrorCode;
+import com.conk.batch.common.exception.BusinessException;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
@@ -62,6 +64,8 @@ public class MonthlyFeeSnapshot {
             BigDecimal pickUnitPrice,
             BigDecimal packUnitPrice
     ) {
+        validate(billingMonth, sellerId, warehouseId, storageUnitPrice, pickUnitPrice, packUnitPrice);
+
         MonthlyFeeSnapshot snapshot = new MonthlyFeeSnapshot();
         snapshot.billingMonth = billingMonth;
         snapshot.sellerId = sellerId;
@@ -71,5 +75,40 @@ public class MonthlyFeeSnapshot {
         snapshot.packUnitPrice = packUnitPrice;
         snapshot.capturedAt = LocalDateTime.now();
         return snapshot;
+    }
+
+    private static void validate(
+            String billingMonth,
+            String sellerId,
+            String warehouseId,
+            BigDecimal storageUnitPrice,
+            BigDecimal pickUnitPrice,
+            BigDecimal packUnitPrice
+    ) {
+        if (billingMonth == null || billingMonth.isBlank()) {
+            throw new BusinessException(BatchErrorCode.INVALID_BILLING_MONTH, "billingMonth must not be blank");
+        }
+        if (sellerId == null || sellerId.isBlank()) {
+            throw new BusinessException(BatchErrorCode.INVALID_SELLER_ID, "sellerId must not be blank");
+        }
+        if (warehouseId == null || warehouseId.isBlank()) {
+            throw new BusinessException(BatchErrorCode.INVALID_WAREHOUSE_ID, "warehouseId must not be blank");
+        }
+        validateNonNegative(storageUnitPrice, BatchErrorCode.INVALID_STORAGE_UNIT_PRICE, "storageUnitPrice");
+        validateNonNegative(pickUnitPrice, BatchErrorCode.INVALID_PICK_UNIT_PRICE, "pickUnitPrice");
+        validateNonNegative(packUnitPrice, BatchErrorCode.INVALID_PACK_UNIT_PRICE, "packUnitPrice");
+    }
+
+    private static void validateNonNegative(
+            BigDecimal value,
+            BatchErrorCode errorCode,
+            String fieldName
+    ) {
+        if (value == null) {
+            throw new BusinessException(errorCode, fieldName + " must not be null");
+        }
+        if (value.compareTo(BigDecimal.ZERO) < 0) {
+            throw new BusinessException(errorCode, fieldName + " must be greater than or equal to 0");
+        }
     }
 }
