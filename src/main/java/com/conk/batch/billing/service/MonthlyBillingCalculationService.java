@@ -6,10 +6,11 @@ import com.conk.batch.billing.domain.SellerMonthlyBilling;
 import com.conk.batch.billing.publisher.BillingResultEventPublisher;
 import com.conk.batch.billing.repository.BillingDispatchHistoryRepository;
 import com.conk.batch.billing.repository.DailyBinSnapshotRepository;
-import com.conk.batch.billing.repository.MonthlyFeeSnapshotRepository;
 import com.conk.batch.billing.repository.SellerMonthlyBillingRepository;
 import com.conk.batch.billing.repository.WmsBillingReadRepository;
 import com.conk.batch.billing.repository.dto.PickPackMonthlyAggregation;
+import com.conk.batch.common.exception.BatchErrorCode;
+import com.conk.batch.common.exception.BusinessException;
 import java.time.LocalDate;
 import java.time.YearMonth;
 import java.util.List;
@@ -32,7 +33,6 @@ public class MonthlyBillingCalculationService {
     private String billingMonthlyResultTopic;
 
     private final DailyBinSnapshotRepository dailyBinSnapshotRepository;
-    private final MonthlyFeeSnapshotRepository monthlyFeeSnapshotRepository;
     private final SellerMonthlyBillingRepository sellerMonthlyBillingRepository;
     private final BillingDispatchHistoryRepository billingDispatchHistoryRepository;
     private final WmsBillingReadRepository wmsBillingReadRepository;
@@ -43,13 +43,16 @@ public class MonthlyBillingCalculationService {
 
     @Transactional
     public List<SellerMonthlyBilling> calculateAndPublish(YearMonth billingMonth) {
+        if (billingMonth == null) {
+            throw new BusinessException(BatchErrorCode.INVALID_BILLING_MONTH, "billingMonth must not be null");
+        }
+
         String billingMonthText = billingMonth.toString();
         LocalDate startDate = billingMonth.atDay(1);
         LocalDate endDate = billingMonth.atEndOfMonth();
 
         List<MonthlyFeeSnapshot> feeSnapshots = monthlyFeeSnapshotService.captureMonthlyFeeSnapshots(billingMonth);
-        Map<SellerWarehouseKey, MonthlyFeeSnapshot> feeSnapshotByKey = monthlyFeeSnapshotRepository
-                .findByBillingMonth(billingMonthText)
+        Map<SellerWarehouseKey, MonthlyFeeSnapshot> feeSnapshotByKey = feeSnapshots
                 .stream()
                 .collect(Collectors.toMap(
                         snapshot -> new SellerWarehouseKey(snapshot.getSellerId(), snapshot.getWarehouseId()),
@@ -65,23 +68,12 @@ public class MonthlyBillingCalculationService {
                         Collectors.summingInt(snapshot -> snapshot.getOccupiedBinCount() == null ? 0 : snapshot.getOccupiedBinCount())
                 ));
 
-        Map<SellerWarehouseKey, PickPackMonthlyAggregation> pickPackByKey = wmsBillingReadRepository
-                .findPickPackAggregations(billingMonth)
-                .stream()
-                .collect(Collectors.toMap(
-                        aggregation -> new SellerWarehouseKey(aggregation.sellerId(), aggregation.warehouseId()),
-                        Function.identity(),
-                        (left, right) -> new PickPackMonthlyAggregation(
-                                right.sellerId(),
-                                right.warehouseId(),
-                                left.pickCount() + right.pickCount(),
-                                left.packCount() + right.packCount()
-                        )
-                ));
+        Map<SellerWarehouseKey, PickPackMonthlyAggregation> pickPackByKey = loadPickPackAggregations(billingMonth);
 
         sellerMonthlyBillingRepository.deleteByBillingMonth(billingMonthText);
+        sellerMonthlyBillingRepository.flush();
 
-        List<SellerMonthlyBilling> savedBillings = sellerMonthlyBillingRepository.saveAll(
+        List<SellerMonthlyBilling> savedBillings = sellerMonthlyBillingRepository.saveAllAndFlush(
                 feeSnapshots.stream()
                         .map(feeSnapshot -> createBilling(
                                 billingMonth,
@@ -93,6 +85,8 @@ public class MonthlyBillingCalculationService {
         );
 
         savedBillings.forEach(billing -> publish(billing, feeSnapshotByKey.get(keyOf(billing))));
+        sellerMonthlyBillingRepository.flush();
+        billingDispatchHistoryRepository.flush();
         return savedBillings;
     }
 
@@ -130,12 +124,11 @@ public class MonthlyBillingCalculationService {
     }
 
     private void publish(SellerMonthlyBilling billing, MonthlyFeeSnapshot feeSnapshot) {
-        BillingDispatchHistory history = BillingDispatchHistory.pending(
+        BillingDispatchHistory history = billingDispatchHistoryRepository.save(BillingDispatchHistory.pending(
                 billing.getBillingMonth(),
                 billing.getSellerId(),
                 billingMonthlyResultTopic
-        );
-        billingDispatchHistoryRepository.save(history);
+        ));
 
         try {
             billingResultEventPublisher.publish(billing, feeSnapshot);
@@ -144,6 +137,31 @@ public class MonthlyBillingCalculationService {
         } catch (Exception exception) {
             history.markFailed(exception.getMessage());
             billing.markPublishFailed();
+        }
+    }
+
+    private Map<SellerWarehouseKey, PickPackMonthlyAggregation> loadPickPackAggregations(YearMonth billingMonth) {
+        try {
+            return wmsBillingReadRepository.findPickPackAggregations(billingMonth)
+                    .stream()
+                    .collect(Collectors.toMap(
+                            aggregation -> new SellerWarehouseKey(aggregation.sellerId(), aggregation.warehouseId()),
+                            Function.identity(),
+                            (left, right) -> new PickPackMonthlyAggregation(
+                                    right.sellerId(),
+                                    right.warehouseId(),
+                                    left.pickCount() + right.pickCount(),
+                                    left.packCount() + right.packCount()
+                            )
+                    ));
+        } catch (BusinessException exception) {
+            throw exception;
+        } catch (RuntimeException exception) {
+            throw new BusinessException(
+                    BatchErrorCode.PICK_PACK_AGGREGATION_FETCH_FAILED,
+                    "failed to fetch pick-pack aggregations from WMS for billingMonth=" + billingMonth,
+                    exception
+            );
         }
     }
 
