@@ -1,5 +1,7 @@
 package com.conk.batch.billing.domain;
 
+import com.conk.batch.common.exception.BatchErrorCode;
+import com.conk.batch.common.exception.BusinessException;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
@@ -87,6 +89,19 @@ public class SellerMonthlyBilling {
             Integer packCount,
             BigDecimal packingFee
     ) {
+        validate(
+                billingMonth,
+                sellerId,
+                warehouseId,
+                occupiedBinDays,
+                averageOccupiedBins,
+                storageFee,
+                pickCount,
+                pickingFee,
+                packCount,
+                packingFee
+        );
+
         SellerMonthlyBilling billing = new SellerMonthlyBilling();
         billing.billingMonth = billingMonth;
         billing.sellerId = sellerId;
@@ -110,5 +125,61 @@ public class SellerMonthlyBilling {
 
     public void markPublishFailed() {
         this.status = BillingStatus.PUBLISH_FAILED;
+    }
+
+    private static void validate(
+            String billingMonth,
+            String sellerId,
+            String warehouseId,
+            Integer occupiedBinDays,
+            BigDecimal averageOccupiedBins,
+            BigDecimal storageFee,
+            Integer pickCount,
+            BigDecimal pickingFee,
+            Integer packCount,
+            BigDecimal packingFee
+    ) {
+        if (billingMonth == null || billingMonth.isBlank()) {
+            throw new BusinessException(BatchErrorCode.INVALID_BILLING_MONTH, "billingMonth must not be blank");
+        }
+        if (sellerId == null || sellerId.isBlank()) {
+            throw new BusinessException(BatchErrorCode.INVALID_SELLER_ID, "sellerId must not be blank");
+        }
+        if (warehouseId == null || warehouseId.isBlank()) {
+            throw new BusinessException(BatchErrorCode.INVALID_WAREHOUSE_ID, "warehouseId must not be blank");
+        }
+        validateNonNegativeInteger(occupiedBinDays, BatchErrorCode.INVALID_OCCUPIED_BIN_DAYS, "occupiedBinDays");
+        validateNonNegativeBigDecimal(
+                averageOccupiedBins,
+                BatchErrorCode.INVALID_AVERAGE_OCCUPIED_BINS,
+                "averageOccupiedBins"
+        );
+        validateNonNegativeBigDecimal(storageFee, BatchErrorCode.INVALID_STORAGE_FEE, "storageFee");
+        validateNonNegativeInteger(pickCount, BatchErrorCode.INVALID_PICK_COUNT, "pickCount");
+        validateNonNegativeBigDecimal(pickingFee, BatchErrorCode.INVALID_PICKING_FEE, "pickingFee");
+        validateNonNegativeInteger(packCount, BatchErrorCode.INVALID_PACK_COUNT, "packCount");
+        validateNonNegativeBigDecimal(packingFee, BatchErrorCode.INVALID_PACKING_FEE, "packingFee");
+    }
+
+    private static void validateNonNegativeInteger(Integer value, BatchErrorCode errorCode, String fieldName) {
+        if (value == null) {
+            throw new BusinessException(errorCode, fieldName + " must not be null");
+        }
+        if (value < 0) {
+            throw new BusinessException(errorCode, fieldName + " must be greater than or equal to 0");
+        }
+    }
+
+    private static void validateNonNegativeBigDecimal(
+            BigDecimal value,
+            BatchErrorCode errorCode,
+            String fieldName
+    ) {
+        if (value == null) {
+            throw new BusinessException(errorCode, fieldName + " must not be null");
+        }
+        if (value.compareTo(BigDecimal.ZERO) < 0) {
+            throw new BusinessException(errorCode, fieldName + " must be greater than or equal to 0");
+        }
     }
 }
