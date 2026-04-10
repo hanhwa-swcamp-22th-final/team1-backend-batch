@@ -1,5 +1,7 @@
 package com.conk.batch.billing.domain;
 
+import com.conk.batch.common.exception.BatchErrorCode;
+import com.conk.batch.common.exception.BusinessException;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
@@ -54,6 +56,8 @@ public class DailyBinSnapshot {
             String warehouseId,
             Integer occupiedBinCount
     ) {
+        validate(snapshotDate, sellerId, warehouseId, occupiedBinCount);
+
         DailyBinSnapshot snapshot = new DailyBinSnapshot();
         snapshot.snapshotDate = snapshotDate;
         snapshot.sellerId = sellerId;
@@ -61,5 +65,35 @@ public class DailyBinSnapshot {
         snapshot.occupiedBinCount = occupiedBinCount;
         snapshot.createdAt = LocalDateTime.now();
         return snapshot;
+    }
+
+    private static void validate(
+            LocalDate snapshotDate,
+            String sellerId,
+            String warehouseId,
+            Integer occupiedBinCount
+    ) {
+        if (snapshotDate == null) {
+            throw new BusinessException(BatchErrorCode.INVALID_SNAPSHOT_DATE, "snapshotDate must not be null");
+        }
+
+        if (sellerId == null || sellerId.isBlank()) {
+            throw new BusinessException(BatchErrorCode.INVALID_SELLER_ID, "sellerId must not be blank");
+        }
+        if (warehouseId == null || warehouseId.isBlank()) {
+            throw new BusinessException(BatchErrorCode.INVALID_WAREHOUSE_ID, "warehouseId must not be blank");
+        }
+        if (occupiedBinCount == null) {
+            throw new BusinessException(
+                    BatchErrorCode.INVALID_OCCUPIED_BIN_COUNT,
+                    "occupiedBinCount must not be null"
+            );
+        }
+        if (occupiedBinCount < 0) {
+            throw new BusinessException(
+                    BatchErrorCode.INVALID_OCCUPIED_BIN_COUNT,
+                    "occupiedBinCount must be greater than or equal to 0"
+            );
+        }
     }
 }
