@@ -18,6 +18,10 @@ spring:
   jackson:
     serialization:
       write-dates-as-timestamps: false
+  sql:
+    init:
+      mode: always
+      schema-locations: classpath:db/ddl/batch_billing_schema.sql
 
 app:
   datasource:

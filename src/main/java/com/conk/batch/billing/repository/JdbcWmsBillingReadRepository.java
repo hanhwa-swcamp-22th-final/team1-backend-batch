@@ -48,13 +48,11 @@ public class JdbcWmsBillingReadRepository implements WmsBillingReadRepository {
                 SELECT tenant_id, warehouse_id, MAX(effective_from) AS latest_effective_from
                 FROM fee_setting
                 WHERE status = 'ACTIVE'
-                  AND warehouse_id IS NOT NULL
-                  AND TRIM(warehouse_id) <> ''
                   AND effective_from <= :billingMonthEndDate
                 GROUP BY tenant_id, warehouse_id
             ) latest
                 ON latest.tenant_id = fs.tenant_id
-               AND latest.warehouse_id = fs.warehouse_id
+               AND latest.warehouse_id <=> fs.warehouse_id
                AND latest.latest_effective_from = fs.effective_from
             WHERE fs.status = 'ACTIVE'
             ORDER BY fs.tenant_id ASC, fs.warehouse_id ASC
