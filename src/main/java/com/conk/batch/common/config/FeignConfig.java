@@ -2,6 +2,7 @@ package com.conk.batch.common.config;
 
 import feign.Logger;
 import feign.Request;
+import feign.RequestInterceptor;
 import feign.Retryer;
 import java.util.concurrent.TimeUnit;
 import org.springframework.context.annotation.Bean;
@@ -12,6 +13,8 @@ import org.springframework.context.annotation.Configuration;
  */
 @Configuration
 public class FeignConfig {
+
+    private static final String HEADER_INTERNAL_CALL = "X-Internal-Call";
 
     @Bean
     public Logger.Level feignLoggerLevel() {
@@ -26,5 +29,10 @@ public class FeignConfig {
     @Bean
     public Retryer feignRetryer() {
         return Retryer.NEVER_RETRY;
+    }
+
+    @Bean
+    public RequestInterceptor internalCallRequestInterceptor() {
+        return template -> template.header(HEADER_INTERNAL_CALL, "true");
     }
 }
