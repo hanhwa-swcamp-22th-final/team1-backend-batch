@@ -35,7 +35,7 @@ app:
         minimum-idle: 1
   clients:
     wms:
-      base-url: ${WMS_BASE_URL:http://localhost:8080}
+      base-url: ${WMS_SERVICE_URL:http://localhost:8083}
   kafka:
     topics:
       billing-monthly-result: billing.monthly.result.v1
